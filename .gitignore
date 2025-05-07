@@ -1,4 +1,7 @@
 rootfs/
-*/__pycache__
 knecht/docker_debug/tools
 test
+*/__pycache__/
+**/__pycache__/
+***/__pycache__/
+dist

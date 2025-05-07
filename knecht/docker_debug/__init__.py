@@ -7,9 +7,9 @@ import time
 import os
 from pwnlib.elf.elf import ELF
 
-from .proxy import proxy
-from docker_debug import utils, docker_utils
-from docker_debug.utils import client, log
+from knecht.docker_debug import utils, docker_utils
+from knecht.docker_debug.proxy import proxy
+from knecht.docker_debug.utils import client, log
 
 
 class docker(remote):

@@ -9,7 +9,7 @@ from docker.models.containers import Container
 from docker.models.images import Image
 from docker.errors import BuildError
 
-from docker_debug.utils import client
+from knecht.docker_debug.utils import client
 
 
 def upload_directory(container:Container, src_path:str, dest_path:str):
