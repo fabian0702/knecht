@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "knecht"
+version = "0.1.0"
+description = ""
+authors = ["fabian0702 <48295869+fabian0702@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pwntools = "^4.14.1"
+docker = "^7.1.0"
+qiling = "^1.4.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

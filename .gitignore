@@ -1,5 +1,4 @@
-TerminalMate
 rootfs/
 */__pycache__
-docker_debug/tools
-Dockerfile
+knecht/docker_debug/tools
+test
