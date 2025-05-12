@@ -14,6 +14,10 @@ client = docker.from_env()
 
 module_dir = os.path.dirname(__file__)
 
+def compute_file_hash(path:str):
+    with open(path, 'rb') as f:
+        return sha256(f.read()).hexdigest()[:12]
+
 def compute_container_key():
     return sha256(os.path.dirname(os.getcwd()).encode()).hexdigest()[:12]
 

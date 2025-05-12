@@ -7,10 +7,9 @@ import time
 import os
 from pwnlib.elf.elf import ELF
 
-from knecht.docker_debug import utils, docker_utils
+from knecht.docker_debug import utils, docker_utils, tools
 from knecht.docker_debug.proxy import proxy
 from knecht.docker_debug.utils import client, log
-
 
 class docker(remote):
     def __init__(self, host: str, port: int, container_id: str = None, exe: str | ELF = None, ssl: bool = False, *args, **kwargs):
@@ -25,6 +24,7 @@ class docker(remote):
         self.exe = exe or self.find_executable()
         log.info(f"Executable set to: {self.exe}")
 
+        self.check_and_download_tools()
         self.check_and_upload_gdbserver()
 
         super().__init__(*args, host=host, port=port, ssl=ssl, **kwargs)
@@ -44,7 +44,8 @@ class docker(remote):
         if not self.container:
             log.info("Building and running a new container.")
             self.image = docker_utils.check_build_if_necessary(
-                labels={f'build_container_key': self.container_key},
+                labels={'build_container_key' : self.container_key, 
+                        'file_hash' : utils.compute_file_hash('Dockerfile')},
                 tag=f'pwn-{self.container_key}',
                 path='.'
             )
@@ -55,6 +56,11 @@ class docker(remote):
                 ports={f'{port}/tcp': port}
             )
             log.info(f"New container started with image: {self.image}")
+
+    def check_and_download_tools(self):
+        tools_path = os.path.join(utils.module_dir, 'tools')
+        if not os.path.exists(tools_path):
+            tools.setup_tools()
 
     def find_executable(self) -> str:
         """Find the name of the executable by looking at the files and the container's entrypoint/cmd."""
@@ -118,3 +124,6 @@ class docker(remote):
         sock = self.container.exec_run(*args, **kwargs).output._sock
         self.proxy = proxy(sock)
         return self.proxy.remote
+    
+    def close(self):
+        self.proxy.close()

@@ -25,12 +25,11 @@ def upload_directory(container:Container, src_path:str, dest_path:str):
 
 def check_build_if_necessary(labels:dict[str,str]={}, *args, **kwargs) -> Image:
     """check if there already is a image with the labels else build it with the provided args"""
-
-    #images = client.images.list(filters={'label':labels})
-    #if images:
-    #    return images[0]
-    #else:
-    return build_image(*args, labels=labels, **kwargs)
+    images = client.images.list(filters={'label':label_dict_to_list(labels)})
+    if images:
+        return images[0]
+    else:
+        return build_image(*args, labels=labels, **kwargs)
 
 def label_dict_to_list(labels:dict[str, str]) -> list[str]:
     return [f'{k}={v}' for k, v in labels.items()]
@@ -62,7 +61,7 @@ def build_image(*args, **kwargs) -> Image | None:
             case 'error':
                 raise BuildError(chunk['error'], response_stream)
             case 'errorDetail':
-                sys.stdout.write(chunk)
+                raise BuildError(chunk['errorDetail']['message'], response_stream)
             case 'stream':
                 sys.stdout.write(chunk['stream'])
             case 'status':
