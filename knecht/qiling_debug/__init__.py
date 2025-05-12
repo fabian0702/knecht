@@ -21,6 +21,11 @@ from pwnlib.timeout import Timeout
 from docker.models.images import Image
 from docker.models.containers import Container
 
+from knecht.qiling_debug.buffer import FileBuffer
+from knecht.docker_debug.docker_utils import build_image
+from collections import namedtuple
+
+Host_Port = namedtuple('Host_Port', ['host', 'port'])
 
 log = getLogger(__file__)
 
@@ -29,17 +34,28 @@ class qiling(tube):
     _stop:bool = False
     def __init__(self, argv:list[str], env:dict[str, str] = None, docker_image:str|Image=None, rootfs:str=None, run:bool = True, verbose=QL_VERBOSE.DISABLED, *args, **kwargs):
         rootfs = rootfs or self.get_rootfs_from_image(docker_image)
+        if not os.path.exists(argv[0]):
+            if os.path.isabs(argv[0]):
+                argv[0] = argv[0][1:]
+            argv[0] = os.path.join(rootfs, argv[0])
+            if not os.path.exists(argv[0]):
+                raise Exception('binary not found in rootfs')
+        
         self.ql = Qiling(*args, argv=argv, rootfs=rootfs, env=env or os.environ, verbose=verbose, **kwargs)
+
         super(qiling, self).__init__()
         self._timeout = self._get_timeout_seconds(Timeout.default)
-        self.ql.os.stdin = pipe.SimpleStringBuffer()
-        self.ql.os.stdout = pipe.SimpleStringBuffer()
-        if run:
-            self.fire_and_forget(self.ql.run)
+        self.ql.os.stdin = FileBuffer()
+        self.ql.os.stdout = FileBuffer()
+
+        self.ql.os.stdout.buffer = self.buffer
+
+    def run(self):
+        self.ql.run()
 
     def fire_and_forget(self, function:Callable, *args, **kwargs):
-        t = Thread(target=function, args=args, kwargs=kwargs, daemon=True)
-        t.start()
+        self.debugger_thread = Thread(target=function, args=args, kwargs=kwargs, daemon=True)
+        self.debugger_thread.start()
 
     def get_rootfs_from_image(self, image:str|Image=None):
         client = docker.from_env()
@@ -49,6 +65,9 @@ class qiling(tube):
 
         if isinstance(image, str):
             image = client.images.get(image)
+
+        if not image:
+            image = build_image(path='.')
 
         total_size = sum(layer['Size'] for layer in image.history())
 
@@ -70,10 +89,10 @@ class qiling(tube):
         return self.ql.os.stdin.write(data)
     
     def recv_raw(self, numb):
-        return self.ql.os.stdout.read(numb)
+        return b''  # just a stub not used as the read is done directly into the buffer for performance reasons
     
     def can_recv_raw(self, timeout):
-        return self.ql.os.stdout.readable()
+        return self.buffer.size
     
     def shutdown(self, direction="send"):
         if direction == 'send':
@@ -97,6 +116,8 @@ class qiling(tube):
     def start_debugger(self):
         """start the debugger on a new free portsd"""
         host, port = self.find_free_port()
+        if not self.ql.debugger:
+            raise Exception('Debugger already present')
         debugger = QlGdb(self.ql, host, port)
         self.fire_and_forget(debugger.run)
         return (host, port)
