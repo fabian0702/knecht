@@ -32,7 +32,7 @@ log = getLogger(__file__)
 class qiling(tube):
     timeout:int = -1
     _stop:bool = False
-    def __init__(self, argv:list[str], env:dict[str, str] = None, docker_image:str|Image=None, rootfs:str=None, run:bool = True, verbose=QL_VERBOSE.DISABLED, *args, **kwargs):
+    def __init__(self, argv:list[str], env:dict[str, str] = None, docker_image:str|Image=None, rootfs:str=None, verbose=QL_VERBOSE.DISABLED, *args, **kwargs):
         rootfs = rootfs or self.get_rootfs_from_image(docker_image)
         if not os.path.exists(argv[0]):
             if os.path.isabs(argv[0]):
@@ -50,7 +50,9 @@ class qiling(tube):
 
         self.ql.os.stdout.buffer = self.buffer
 
-    def run(self):
+    def run(self, script:Callable=None):
+        if script:
+            self.fire_and_forget(script)
         self.ql.run()
 
     def fire_and_forget(self, function:Callable, *args, **kwargs):
@@ -85,6 +87,8 @@ class qiling(tube):
         
         container.remove()
 
+        return 'rootfs'
+
     def send_raw(self, data):
         return self.ql.os.stdin.write(data)
     
@@ -116,7 +120,7 @@ class qiling(tube):
     def start_debugger(self):
         """start the debugger on a new free portsd"""
         host, port = self.find_free_port()
-        if not self.ql.debugger:
+        if self.ql.debugger:
             raise Exception('Debugger already present')
         debugger = QlGdb(self.ql, host, port)
         self.fire_and_forget(debugger.run)

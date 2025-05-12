@@ -7,7 +7,7 @@ import io
 GDB_URL = "https://github.com/guyush1/gdb-static/releases/download/v16.3-static/gdb-static-full-x86_64.tar.gz"
 PIDOF_URL = "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_PIDOF"
 
-MODULE_DIRECTORY = os.path.basename(__file__)
+MODULE_DIRECTORY = os.path.dirname(__file__)
 TOOLS_DIRECTORY = os.path.join(MODULE_DIRECTORY, 'tools')
 
 def create_tools_directory():
@@ -59,6 +59,3 @@ def setup_tools():
     
     # Make all tools executable
     make_executable(TOOLS_DIRECTORY)
-
-if __name__ == "__main__":
-    setup_tools()
