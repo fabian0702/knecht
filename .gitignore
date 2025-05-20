@@ -1,5 +1,6 @@
 rootfs/
 knecht/docker_debug/tools
+knecht/transmit/test.png
 test
 */__pycache__/
 **/__pycache__/
