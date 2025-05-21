@@ -10,7 +10,7 @@ from pwnlib.log import getLogger
 from knecht.docker_debug import docker
 from knecht.qiling_debug import qiling
 
-from knecht.transmit.file import File
+from knecht.transmit import File
 
 log = getLogger(__file__)
 
