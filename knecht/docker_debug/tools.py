@@ -4,6 +4,10 @@ import shutil
 import requests
 import io
 
+from knecht.docker_debug.docker_utils import build_image
+from knecht.docker_debug.utils import client, log
+
+
 GDB_URL = "https://github.com/guyush1/gdb-static/releases/download/v16.3-static/gdb-static-full-x86_64.tar.gz"
 PIDOF_URL = "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_PIDOF"
 
@@ -49,9 +53,11 @@ def setup_tools():
     """Download and set up debugging tools."""
     create_tools_directory()
     
-    # Download and extract GDB
-    gdb_content = download_file(GDB_URL)
-    extract_tarball(gdb_content, TOOLS_DIRECTORY)
+    builder_image = build_image(tag='tool_builder', path=os.path.join(MODULE_DIRECTORY, 'build'))
+    if not builder_image:
+        log.error("Failed to build the image for downloading tools.")
+        return
+    client.containers.run(builder_image, remove=True, volumes={TOOLS_DIRECTORY: {'bind': '/tools', 'mode': 'rw'}})
     
     # Download and save pidof
     pidof_content = download_file(PIDOF_URL)

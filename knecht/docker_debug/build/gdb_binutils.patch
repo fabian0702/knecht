@@ -1,0 +1,22 @@
+diff --git a/gdbserver/linux-low.cc b/gdbserver/linux-low.cc
+index 50ce2b44927..b6ee3af484f 100644
+--- a/gdbserver/linux-low.cc
++++ b/gdbserver/linux-low.cc
+@@ -5512,9 +5512,16 @@ linux_process_target::request_interrupt ()
+   /* Send a SIGINT to the process group.  This acts just like the user
+      typed a ^C on the controlling terminal.  */
+   int res = ::kill (-signal_pid, SIGINT);
+-  if (res == -1)
++  if (res == -1) {
+     warning (_("Sending SIGINT to process group of pid %ld failed: %s"),
+ 	     signal_pid, safe_strerror (errno));
++
++    int res = ::kill (signal_pid, SIGINT);
++    if (res == -1) {
++      warning (_("Sending SIGINT to process of pid %ld failed: %s"),
++        signal_pid, safe_strerror (errno));
++    }
++  }
+ }
+ 
+ bool

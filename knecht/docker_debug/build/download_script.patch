@@ -1,0 +1,57 @@
+diff --git a/src/docker_utils/download_musl_toolchains.py b/src/docker_utils/download_musl_toolchains.py
+index 50cce3c..3fb161a 100755
+--- a/src/docker_utils/download_musl_toolchains.py
++++ b/src/docker_utils/download_musl_toolchains.py
+@@ -2,6 +2,7 @@
+ 
+ from typing import List
+ from pathlib import Path
++import sys
+ 
+ import tarfile
+ import tempfile
+@@ -43,11 +44,12 @@ async def download_tarfile(tar_url: str, extraction_dir: Path):
+ 
+     print(f"Downloaded & Extracted: {tar_url!r}")
+ 
+-async def download_archs() -> List[str]:
+-    print(f"Downloading toolchains for architectures: {', '.join(ARCHS.keys())}")
++async def download_archs(target_archs: List[str]) -> List[str]:
++    print(f"Downloading toolchains for architectures: {target_archs}")
+ 
+     async with asyncio.TaskGroup() as tg:
+-        for url in ARCHS.values():
++        for arch in target_archs:
++            url = ARCHS[arch]
+             tg.create_task(download_tarfile(url, MUSL_TOOLCHAINS_DIR))
+ 
+ def add_to_path(curr_path: str, package_path: Path):
+@@ -57,9 +59,18 @@ def add_to_path(curr_path: str, package_path: Path):
+     return new_path
+ 
+ def main():
++    target_arch = list(ARCHS.keys())
++
++    if len(sys.argv) >= 2:
++        target_arch = [sys.argv[1]]
++        if target_arch[0] not in ARCHS:
++            print(f"Error: Unknown architecture '{target_arch}'")
++            print(f"Available architectures: {ARCHS.keys()}")
++            sys.exit(1)
++
+     os.mkdir(MUSL_TOOLCHAINS_DIR)
+ 
+-    asyncio.run(download_archs())
++    asyncio.run(download_archs(target_arch))
+ 
+     updated_path = "$PATH"
+     for musl_arch_dir in os.scandir(MUSL_TOOLCHAINS_DIR):
+@@ -71,7 +82,7 @@ def main():
+     #
+     # Because we may use a musl-based toolchain, this means that we need to set-up the dynamic loader.
+     # The fix may seem a little hacky, but it is simple, and is the best we can do.
+-    if "x86_64" in ARCHS:
++    if target_arch == "x86_64":
+         x86_toolchain_name = ARCHS["x86_64"].split("/")[-1].removesuffix(".tgz")
+         x86_toolchain_path = MUSL_TOOLCHAINS_DIR / x86_toolchain_name
+         x86_loader_path = x86_toolchain_path / "x86_64-linux-musl" / "lib" / "libc.so"

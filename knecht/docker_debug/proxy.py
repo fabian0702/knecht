@@ -31,15 +31,17 @@ class proxy:
         try:
             while self.running:
                 stream, data = self.parse_packet()
-                # print('read', data)
+                if stream not in (0, 1):
+                    print(f'error: {data}')
+                # print('read', stream, data)
                 if not data: 
                     break
                 self.remote_socket.send(data)
         except (EOFError, OSError):
             pass
-        
-        self.local_socket.close()
-        self.remote_socket.close()
+        finally:
+            self.local_socket.close()
+            self.remote_socket.close()
 
 
     def _run(self):
