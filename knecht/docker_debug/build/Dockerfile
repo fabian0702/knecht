@@ -64,4 +64,4 @@ ENV TERM=xterm-256color
 
 RUN bash -i -c "/entrypoint.sh make -j$(nproc) build-${arch}-slim"
 
-CMD ["bash", "-c", "cp /app/gdb/build/artifacts/${arch}_full/gdbserver /tools/gdbserver"]
+CMD ["bash", "-c", "cp /app/gdb/build/artifacts/x86_64_slim/gdbserver /tools/gdbserver && chown $UID:$UID /tools/gdbserver"]

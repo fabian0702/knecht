@@ -57,7 +57,7 @@ def setup_tools():
     if not builder_image:
         log.error("Failed to build the image for downloading tools.")
         return
-    client.containers.run(builder_image, remove=True, volumes={TOOLS_DIRECTORY: {'bind': '/tools', 'mode': 'rw'}})
+    client.containers.run(builder_image, remove=True, volumes={TOOLS_DIRECTORY: {'bind': '/tools', 'mode': 'rw'}}, environment={'UID':str(os.getuid())})
     
     # Download and save pidof
     pidof_content = download_file(PIDOF_URL)

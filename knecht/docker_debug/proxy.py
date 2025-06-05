@@ -4,6 +4,8 @@ from threading import Thread
 
 import struct
 
+from knecht.docker_debug.utils import log
+
 class proxy:
     def __init__(self, local_socket:socket.socket):
         self.server_socket = listen()
@@ -15,7 +17,7 @@ class proxy:
         self.thread = Thread(target=self._run, daemon=True)
         self.thread.start()
 
-    def parse_packet(self) -> bytes:
+    def parse_packet(self) -> tuple[int, bytes]:
         header = self.local_socket.recv(8)
         if not header:
             raise EOFError
@@ -24,21 +26,27 @@ class proxy:
     
     def close(self):
         self.running = False
-        self.local_socket.close()
-        self.remote_socket.close()
+        if hasattr(self, 'local_socket'):
+            self.local_socket.close()
+        if hasattr(self, 'remote_socket'):
+            self.remote_socket.close()
     
     def _recv_thread(self):
         try:
             while self.running:
                 stream, data = self.parse_packet()
                 if stream not in (0, 1):
-                    print(f'error: {data}')
-                # print('read', stream, data)
+                    log.warning(data)
+                log.debug(f'proxy recv stream: {stream}, data: {data}')
                 if not data: 
+                    log.warning('No data received, closing gdbserver connection.')
+                    self.running = False
                     break
                 self.remote_socket.send(data)
+            log.debug('Stopping proxy recv thread.')
         except (EOFError, OSError):
-            pass
+            log.warning('Closing gdbserver connection.')
+            self.running = False
         finally:
             self.local_socket.close()
             self.remote_socket.close()
@@ -53,12 +61,16 @@ class proxy:
         try:
             while self.running:
                 data = self.remote_socket.recv(4096)
-                # print('write', data)
+                log.debug(f'proxy send data: {data}')
                 if not data: 
+                    log.warning('No data received, closing gdbserver connection.')
+                    self.running = False
                     break
                 self.local_socket.send(data)
+            log.debug('Stopping proxy send thread.')
         except (EOFError, OSError):
-            pass
-
-        self.local_socket.close()
-        self.remote_socket.close()
+            log.warning('Closing gdbserver connection.')
+            self.running = False
+        finally:
+            self.local_socket.close()
+            self.remote_socket.close()

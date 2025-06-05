@@ -32,8 +32,7 @@ class docker(remote):
 
         super().__init__(*args, host=host, port=port, ssl=ssl, **kwargs)
 
-        pid = self.ensure_exe_running()
-        self.start_exec_proxy(['gdbserver', '--once', '--attach', 'stdio', str(pid)], environment=self.get_environment(), stdin=True, privileged=True, socket=True)
+        self.pid = self.ensure_exe_running()
 
     def initialize_container(self, container_id: str, port: int):
         """Build/start the image/container if necessary."""
@@ -123,6 +122,11 @@ class docker(remote):
             time.sleep(0.05)
         log.error("Executable not found after multiple attempts.")
 
+    def attach_gdbserver(self):
+        """Attach a gdbserver to the running executable."""
+        return self.start_exec_proxy(cmd=['gdbserver', '--once', '--attach', 'stdio', str(self.pid)], environment=self.get_environment(), stdin=True, privileged=True, socket=True)
+
+
     @functools.wraps(Container.exec_run)
     def start_exec_proxy(self, *args, **kwargs) -> tuple[str, int]:
         """Start the given exec and forward stdio to a socket listening at a free port."""
@@ -132,4 +136,6 @@ class docker(remote):
         return self.proxy.remote
     
     def close(self):
-        self.proxy.close()
+        if self.proxy:
+            log.info("Closing proxy connection.")
+            self.proxy.close()

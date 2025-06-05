@@ -24,7 +24,7 @@ def hook():
     def attach(target, gdbscript = '', exe = None, gdb_args = None, ssh = None, sysroot = None, api = False):
         if isinstance(target, docker):
             exe = exe or target.exe
-            target = target.proxy.remote
+            target = target.attach_gdbserver()
 
         if isinstance(target, qiling):
             exe = target.ql.argv[0]
