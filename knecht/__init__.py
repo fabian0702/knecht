@@ -6,6 +6,7 @@ from pwnlib import gdb, tubes
 from pwnlib.util import proc
 from pwnlib.timeout import Timeout
 from pwnlib.log import getLogger
+from pwnlib.elf.elf import ELF
 
 from knecht.docker_debug import docker
 from knecht.qiling_debug import qiling
@@ -24,7 +25,7 @@ def hook():
     def attach(target, gdbscript = '', exe = None, gdb_args = None, ssh = None, sysroot = None, api = False):
         if isinstance(target, docker):
             exe = exe or target.exe
-            target = target.proxy.remote
+            target = target.attach_gdbserver()
 
         if isinstance(target, qiling):
             exe = target.ql.argv[0]
@@ -55,7 +56,10 @@ def hook():
                     time.sleep(0.1)
 
             target = pid
-            
+
+        if isinstance(exe, ELF):
+            exe = exe.path  
+        
         return original_function(target, gdbscript, exe, gdb_args, ssh, sysroot, api)
     
     setattr(gdb, 'attach', attach)

@@ -27,10 +27,12 @@ class docker(remote):
         self.check_and_download_tools()
         self.check_and_upload_gdbserver()
 
+        if not self.check_gdbserver():
+            log.error("gdbserver not found in the container. Upload failed.")
+
         super().__init__(*args, host=host, port=port, ssl=ssl, **kwargs)
 
-        pid = self.ensure_exe_running()
-        self.start_exec_proxy(['gdbserver', '--once', '--attach', 'stdio', str(pid)], environment=self.get_environment(), stdin=True, privileged=True, socket=True)
+        self.pid = self.ensure_exe_running()
 
     def initialize_container(self, container_id: str, port: int):
         """Build/start the image/container if necessary."""
@@ -59,7 +61,7 @@ class docker(remote):
 
     def check_and_download_tools(self):
         tools_path = os.path.join(utils.module_dir, 'tools')
-        if not os.path.exists(tools_path):
+        if not os.path.exists(os.path.join(tools_path, 'gdbserver')):
             tools.setup_tools()
 
     def find_executable(self) -> str:
@@ -98,7 +100,7 @@ class docker(remote):
         """Retrieve process IDs of the executable running inside the container."""
         for _ in range(30):
             output = self.container.exec_run(
-                ['pidof', self.exe.path if isinstance(self.exe, ELF) else self.exe],
+                ['pidof', os.path.basename(self.exe.path if isinstance(self.exe, ELF) else self.exe)],
                 environment=self.get_environment()
             ).output.decode().strip()
             pids = output.split()
@@ -111,11 +113,19 @@ class docker(remote):
 
     def ensure_exe_running(self) -> int:
         """Ensure the executable is running inside the container."""
-        pids = self.get_process_ids()
-        if not pids:
-            log.error('The exe has not been found inside the container')
-            raise NotFound('The exe has not been found inside the container')
-        return int(pids[0])
+        for _ in range(30):
+            pids = self.get_process_ids()
+            if pids:
+                log.info(f"Executable is running with PID: {pids[0]}")
+                return int(pids[0])
+            log.info("Executable not found, waiting...")
+            time.sleep(0.05)
+        log.error("Executable not found after multiple attempts.")
+
+    def attach_gdbserver(self):
+        """Attach a gdbserver to the running executable."""
+        return self.start_exec_proxy(cmd=['gdbserver', '--once', '--attach', 'stdio', str(self.pid)], environment=self.get_environment(), stdin=True, privileged=True, socket=True)
+
 
     @functools.wraps(Container.exec_run)
     def start_exec_proxy(self, *args, **kwargs) -> tuple[str, int]:
@@ -126,4 +136,6 @@ class docker(remote):
         return self.proxy.remote
     
     def close(self):
-        self.proxy.close()
+        if self.proxy:
+            log.info("Closing proxy connection.")
+            self.proxy.close()

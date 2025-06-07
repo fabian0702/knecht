@@ -8,7 +8,7 @@ from docker.models.containers import Container
 from pwnlib.log import getLogger
 
 
-log = getLogger(__name__)
+log = getLogger('pwnlib.knecht.docker')
 
 client = docker.from_env()
 
