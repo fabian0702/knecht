@@ -10,8 +10,9 @@ from pwnlib.elf.elf import ELF
 
 from knecht.docker_debug import docker
 from knecht.qiling_debug import qiling
+from knecht import websocket
 
-from knecht.transmit.file import File
+from knecht.transmit import File
 
 log = getLogger(__file__)
 

@@ -6,7 +6,7 @@ authors = ["fabian0702 <48295869+fabian0702@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.7"
 pwntools = "^4.14.1"
 docker = "^7.1.0"
 qiling = "^1.4.6"
