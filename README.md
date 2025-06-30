@@ -31,6 +31,9 @@ d.interactive()  # normal pwntools behaviour
 **host**: the host which the container listens on, usually just localhost   
 **port**: the port the binary listens on   
 **container_id**: (optional) the id / name of a existing container to attach too instead of creating a new one   
+**use_nsenter**: if enabled knecht uses nsenter inside the container to enter the namespace of the process allowing debuging in additional sandboxing like nsjail   
+**pid**: attach directly to target pid, useful if there is some init logic but you still want the debug capabilities   
+**docker_run_kwargs**: this enables passing additionals args to docker run when knecht starts a new container (like privileged for nsjail)   
 **ssl/exe/...**: (optional) the normal arguments for a pwntools remote / process object   
 
 

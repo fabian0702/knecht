@@ -14,11 +14,11 @@ from knecht.docker_debug.proxy import proxy
 from knecht.docker_debug.utils import client, log
 
 class docker(remote):
-    def __init__(self, host: str, port: int, use_nsenter:bool = False, container_id: Optional[str] = None, exe: Optional[str | ELF] = None, pid:Optional[int] = None, ssl: bool = False, docker_run_args:Optional[dict]=None, *args, **kwargs):
+    def __init__(self, host: str, port: int, use_nsenter:bool = False, container_id: Optional[str] = None, exe: Optional[str | ELF] = None, pid:Optional[int] = None, ssl: bool = False, docker_run_kwargs:Optional[dict]=None, *args, **kwargs):
         self.container:Container = None
         self.proxy:proxy = None
         self.exe = exe
-        self.docker_run_args = docker_run_args
+        self.docker_run_args = docker_run_kwargs
         self.use_nsenter = use_nsenter
         self.container_key = utils.compute_container_key()
 
