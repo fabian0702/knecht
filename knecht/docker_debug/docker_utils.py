@@ -3,6 +3,7 @@ import sys
 
 from tarfile import TarFile
 from io import BytesIO
+from typing import Optional
 
 import docker
 from docker.models.containers import Container
@@ -34,8 +35,11 @@ def check_build_if_necessary(labels:dict[str,str]={}, *args, **kwargs) -> Image:
 def label_dict_to_list(labels:dict[str, str]) -> list[str]:
     return [f'{k}={v}' for k, v in labels.items()]
     
-def check_run_if_necessary(labels:dict[str,str]={}, *args, **kwargs ) -> Container:
+def check_run_if_necessary(labels:dict[str,str]={}, extra_args:Optional[dict]=None, *args, **kwargs ) -> Container:
     """check if there already is a running container with the labels else run one with the provided args"""
+
+    if extra_args:
+        kwargs.update(extra_args)
 
     containers = client.containers.list(filters={'label':label_dict_to_list(labels), 'status':'running'}, limit=1)
     if containers:

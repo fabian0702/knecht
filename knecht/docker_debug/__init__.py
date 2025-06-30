@@ -6,22 +6,27 @@ import functools
 import time
 import os
 from pwnlib.elf.elf import ELF
+from pwnlib.tubes.process import process
+from typing import Optional
 
 from knecht.docker_debug import utils, docker_utils, tools
 from knecht.docker_debug.proxy import proxy
 from knecht.docker_debug.utils import client, log
 
 class docker(remote):
-    def __init__(self, host: str, port: int, container_id: str = None, exe: str | ELF = None, ssl: bool = False, *args, **kwargs):
+    def __init__(self, host: str, port: int, use_nsenter:bool = False, container_id: Optional[str] = None, exe: Optional[str | ELF] = None, pid:Optional[int] = None, ssl: bool = False, docker_run_args:Optional[dict]=None, *args, **kwargs):
         self.container:Container = None
         self.proxy:proxy = None
         self.exe = exe
+        self.docker_run_args = docker_run_args
+        self.use_nsenter = use_nsenter
         self.container_key = utils.compute_container_key()
 
         log.info(f"Initializing container with ID: {container_id}")
         self.initialize_container(container_id, port)
 
-        self.exe = exe or self.find_executable()
+        if not pid:
+            self.exe = exe or self.find_executable()
         log.info(f"Executable set to: {self.exe}")
 
         self.check_and_download_tools()
@@ -32,9 +37,9 @@ class docker(remote):
 
         super().__init__(*args, host=host, port=port, ssl=ssl, **kwargs)
 
-        self.pid = self.ensure_exe_running()
+        self.pid = pid or self.ensure_exe_running()
 
-    def initialize_container(self, container_id: str, port: int):
+    def initialize_container(self, container_id: Optional[str], port: int):
         """Build/start the image/container if necessary."""
         if container_id:
             try:
@@ -55,7 +60,8 @@ class docker(remote):
                 labels={f'run_container_key': self.container_key},
                 image=self.image,
                 detach=True,
-                ports={f'{port}/tcp': port}
+                ports={f'{port}/tcp': port},
+                extra_args=self.docker_run_args
             )
             log.info(f"New container started with image: {self.image}")
 
@@ -98,6 +104,8 @@ class docker(remote):
 
     def get_process_ids(self) -> list[str]:
         """Retrieve process IDs of the executable running inside the container."""
+        if not self.exe:
+            raise Exception('No pid / exe found / provided, please invoke with exe=<binary name>')
         for _ in range(30):
             output = self.container.exec_run(
                 ['pidof', os.path.basename(self.exe.path if isinstance(self.exe, ELF) else self.exe)],
@@ -124,7 +132,10 @@ class docker(remote):
 
     def attach_gdbserver(self):
         """Attach a gdbserver to the running executable."""
-        return self.start_exec_proxy(cmd=['gdbserver', '--once', '--attach', 'stdio', str(self.pid)], environment=self.get_environment(), stdin=True, privileged=True, socket=True)
+        cmd = ['gdbserver', '--once', '--attach', 'stdio', str(self.pid)]
+        if self.use_nsenter:
+            cmd = ['nsenter', '-a', '-t', str(self.pid)] + cmd
+        return self.start_exec_proxy(cmd=cmd, environment=self.get_environment(), stdin=True, privileged=True, socket=True)
 
 
     @functools.wraps(Container.exec_run)
