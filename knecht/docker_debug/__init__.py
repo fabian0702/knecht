@@ -6,7 +6,6 @@ import functools
 import time
 import os
 from pwnlib.elf.elf import ELF
-from pwnlib.tubes.process import process
 from typing import Optional
 
 from knecht.docker_debug import utils, docker_utils, tools
@@ -14,20 +13,16 @@ from knecht.docker_debug.proxy import proxy
 from knecht.docker_debug.utils import client, log
 
 class docker(remote):
-    def __init__(self, host: str, port: int, use_nsenter:bool = False, container_id: Optional[str] = None, exe: Optional[str | ELF] = None, pid:Optional[int] = None, ssl: bool = False, docker_run_kwargs:Optional[dict]=None, *args, **kwargs):
-        self.container:Container = None
-        self.proxy:proxy = None
-        self.exe = exe
+    def __init__(self, host: str, port: int, target:Optional[int | str | ELF] = None, use_nsenter:bool = False, gdb_server_port:Optional[int]=None, container: Optional[str] = None, ssl: bool = False, docker_run_kwargs:Optional[dict]=None, *args, **kwargs):
+        self.proxy:Optional[proxy] = None
+        self.exe = None
+        self.gdb_server_port = gdb_server_port
         self.docker_run_args = docker_run_kwargs
         self.use_nsenter = use_nsenter
         self.container_key = utils.compute_container_key()
 
-        log.info(f"Initializing container with ID: {container_id}")
-        self.initialize_container(container_id, port)
-
-        if not pid:
-            self.exe = exe or self.find_executable()
-        log.info(f"Executable set to: {self.exe}")
+        self.container = self.initialize_container(container, port)
+        log.info(f"Initializing container with ID: {self.container.name}")
 
         self.check_and_download_tools()
         self.check_and_upload_gdbserver()
@@ -35,35 +30,49 @@ class docker(remote):
         if not self.check_gdbserver():
             log.error("gdbserver not found in the container. Upload failed.")
 
+        if isinstance(target, int):
+            self.pid = target
+        elif isinstance(target, ELF):
+            self.exe = target.path
+        elif isinstance(target, str):
+            self.exe = target
+
+        self.exe:Optional[str] = self.exe or self.find_executable()
+        
+        log.info(f"Executable set to: {self.exe}")
+
         super().__init__(*args, host=host, port=port, ssl=ssl, **kwargs)
 
-        self.pid = pid or self.ensure_exe_running()
+        if not self.gdb_server_port:
+            self.pid = self.pid or self.ensure_exe_running()
 
     def initialize_container(self, container_id: Optional[str], port: int):
         """Build/start the image/container if necessary."""
         if container_id:
             try:
-                self.container = client.containers.get(container_id)
+                container = client.containers.get(container_id)
                 log.info(f"Container {container_id} found.")
+                return container
             except NotFound:
                 log.warning(f"Container {container_id} not found.")
 
-        if not self.container:
-            log.info("Building and running a new container.")
-            self.image = docker_utils.check_build_if_necessary(
-                labels={'build_container_key' : self.container_key, 
-                        'file_hash' : utils.compute_file_hash('Dockerfile')},
-                tag=f'pwn-{self.container_key}',
-                path='.'
-            )
-            self.container = docker_utils.check_run_if_necessary(
-                labels={f'run_container_key': self.container_key},
-                image=self.image,
-                detach=True,
-                ports={f'{port}/tcp': port},
-                extra_args=self.docker_run_args
-            )
-            log.info(f"New container started with image: {self.image}")
+        log.info("Building and running a new container.")
+        self.image = docker_utils.check_build_if_necessary(
+            labels={'build_container_key' : self.container_key, 
+                    'file_hash' : utils.compute_file_hash('Dockerfile')},
+            tag=f'pwn-{self.container_key}',
+            path='.'
+        )
+        container = docker_utils.check_run_if_necessary(
+            labels={f'run_container_key': self.container_key},
+            image=self.image,
+            detach=True,
+            ports={f'{port}/tcp': port},
+            extra_args=self.docker_run_args
+        )
+        log.info(f"New container started with image: {self.image}")
+
+        return container
 
     def check_and_download_tools(self):
         tools_path = os.path.join(utils.module_dir, 'tools')
@@ -133,16 +142,14 @@ class docker(remote):
     def attach_gdbserver(self):
         """Attach a gdbserver to the running executable."""
         cmd = ['gdbserver', '--once', '--attach', 'stdio', str(self.pid)]
+        if self.gdb_server_port:
+            cmd = ["nc", "localhost", str(self.gdb_server_port)]
         if self.use_nsenter:
             cmd = ['nsenter', '-a', '-t', str(self.pid)] + cmd
-        return self.start_exec_proxy(cmd=cmd, environment=self.get_environment(), stdin=True, privileged=True, socket=True)
 
-
-    @functools.wraps(Container.exec_run)
-    def start_exec_proxy(self, *args, **kwargs) -> tuple[str, int]:
-        """Start the given exec and forward stdio to a socket listening at a free port."""
         log.info("Starting exec proxy.")
-        sock = self.container.exec_run(*args, **kwargs).output._sock
+        sock = self.container.exec_run(cmd=cmd, environment=self.get_environment(), stdin=True, privileged=True, socket=True).output._sock
+        
         self.proxy = proxy(sock)
         return self.proxy.remote
     

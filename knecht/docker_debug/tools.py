@@ -11,6 +11,7 @@ from knecht.docker_debug.utils import client, log
 GDB_URL = "https://github.com/guyush1/gdb-static/releases/download/v16.3-static/gdb-static-full-x86_64.tar.gz"
 PIDOF_URL = "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_PIDOF"
 NSENTER_URL = "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_NSENTER"
+NC_URL = "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_NC"
 
 MODULE_DIRECTORY = os.path.dirname(__file__)
 TOOLS_DIRECTORY = os.path.join(MODULE_DIRECTORY, 'tools')
@@ -66,6 +67,9 @@ def setup_tools():
 
     nsenter_content = download_file(NSENTER_URL)
     save_binary(nsenter_content, 'nsenter')
+
+    nc_content = download_file(NC_URL)
+    save_binary(nc_content, 'nc')
     
     # Make all tools executable
     make_executable(TOOLS_DIRECTORY)

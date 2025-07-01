@@ -8,6 +8,8 @@ docker run --rm -v tools:/tools tool_builder
 
 wget -P tools https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_PIDOF
 wget -P tools https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_NSENTER
+wget -P tools https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox_NC
 chmod +x tools/*
 mv tools/busybox_PIDOF tools/pidof
 mv tools/busybox_NSENTER tools/nsenter
+mv tools/busybox_NC tools/nc
