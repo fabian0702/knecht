@@ -19,6 +19,7 @@ class docker(remote):
         self.gdb_server_port = gdb_server_port
         self.docker_run_args = docker_run_kwargs
         self.use_nsenter = use_nsenter
+        self.pid = None
         self.container_key = utils.compute_container_key()
 
         self.container = self.initialize_container(container, port)
